@@ -4,41 +4,24 @@
 #
 # Custom GN integration for VulkanMemoryAllocator.
 
-declare_args() {
-  vma_vulkan_headers_dir = "//third_party/vulkan-deps/vulkan-headers/src"
-}
+# This could be set via build_overrides if necessary
+vulkan_memory_allocator_vulkan_headers_dir = "../vulkan-headers/src"
 
 config("vulkan_memory_allocator_config") {
-  include_dirs = [ "include" ]
-  if (is_clang) {
-    cflags_cc = [
-      "-Wno-c++98-compat-extra-semi",
-      "-Wno-deprecated-copy",
-      "-Wno-implicit-fallthrough",
-      "-Wno-nullability-completeness",
-      "-Wno-suggest-destructor-override",
-      "-Wno-suggest-override",
-      "-Wno-unused-private-field",
-      "-Wno-unused-variable",
-    ]
-  }
-  if (is_win && !is_clang) {
-    cflags_cc = [
-      "/wd4189",  # local variable is initialized but not referenced
-    ]
-  }
-  defines = [
-    "VMA_DYNAMIC_VULKAN_FUNCTIONS=0",
-    "VMA_STATIC_VULKAN_FUNCTIONS=0",
-    "VMA_USE_STL_CONTAINERS=1",
-  ]
+  include_dirs = [ "src" ]
 }
 
 source_set("vulkan_memory_allocator") {
   sources = [
-    "include/vk_mem_alloc.h",
-    "vma.cpp",
+    # vk_mem_alloc.cpp allows the functions to be compiled into an object file
+    # and the consumers of vulkan_memory_allocator to use the prototypes.
+    "src/vk_mem_alloc.cpp",
+    "src/vk_mem_alloc.h",
   ]
-  deps = [ "${vma_vulkan_headers_dir}:vulkan_headers" ]
+
+  deps = [ "$vulkan_memory_allocator_vulkan_headers_dir:vulkan_headers" ]
+
+  defines = [ "VMA_IMPLEMENTATION" ]
+
   public_configs = [ ":vulkan_memory_allocator_config" ]
 }

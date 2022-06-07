@@ -279,13 +279,6 @@ available through VmaAllocatorCreateInfo::pRecordSettings.
     #endif
 #endif
 
-// Used to silence warnings for implicit fallthrough.
-#if __has_cpp_attribute(clang::fallthrough)
-#define VMA_FALLTHROUGH [[clang::fallthrough]];
-#else
-#define VMA_FALLTHROUGH
-#endif
-
 /** \struct VmaAllocator
 \brief Represents main object of this library initialized.
 
@@ -2493,7 +2486,7 @@ remove them if not needed.
 
 #if defined(__ANDROID_API__) && (__ANDROID_API__ < 16)
 #include <cstdlib>
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     // alignment must be >= sizeof(void*)
     if(alignment < sizeof(void*))
@@ -2510,20 +2503,23 @@ void *vma_aligned_alloc(size_t alignment, size_t size)
 #include <AvailabilityMacros.h>
 #endif
 
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
-#if defined(__APPLE__) && (defined(MAC_OS_X_VERSION_10_16) || defined(__IPHONE_14_0))
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_16 || __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
-    // For C++14, usr/include/malloc/_malloc.h declares aligned_alloc()) only
-    // with the MacOSX11.0 SDK in Xcode 12 (which is what adds 
-    // MAC_OS_X_VERSION_10_16), even though the function is marked
-    // available for 10.15. That's why the preprocessor checks for 10.16 but
-    // the __builtin_available checks for 10.15.
-    // People who use C++17 could call aligned_alloc with the 10.15 SDK already.
-    if (__builtin_available(macOS 10.15, iOS 13, *))
-        return aligned_alloc(alignment, size);
-#endif
-#endif
+    // Unfortunately, aligned_alloc causes VMA to crash due to it returning null pointers. (At least under 11.4)
+    // Therefore, for now disable this specific exception until a proper solution is found.
+    //#if defined(__APPLE__) && (defined(MAC_OS_X_VERSION_10_16) || defined(__IPHONE_14_0))
+    //#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_16 || __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_14_0
+    //    // For C++14, usr/include/malloc/_malloc.h declares aligned_alloc()) only
+    //    // with the MacOSX11.0 SDK in Xcode 12 (which is what adds
+    //    // MAC_OS_X_VERSION_10_16), even though the function is marked
+    //    // availabe for 10.15. That is why the preprocessor checks for 10.16 but
+    //    // the __builtin_available checks for 10.15.
+    //    // People who use C++17 could call aligned_alloc with the 10.15 SDK already.
+    //    if (__builtin_available(macOS 10.15, iOS 13, *))
+    //        return aligned_alloc(alignment, size);
+    //#endif
+    //#endif
+
     // alignment must be >= sizeof(void*)
     if(alignment < sizeof(void*))
     {
@@ -2536,12 +2532,12 @@ void *vma_aligned_alloc(size_t alignment, size_t size)
     return VMA_NULL;
 }
 #elif defined(_WIN32)
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     return _aligned_malloc(size, alignment);
 }
 #else
-void *vma_aligned_alloc(size_t alignment, size_t size)
+static void* vma_aligned_alloc(size_t alignment, size_t size)
 {
     return aligned_alloc(alignment, size);
 }
@@ -11280,6 +11276,7 @@ void VmaDeviceMemoryBlock::Init(
         break;
     default:
         VMA_ASSERT(0);
+        // Fall-through.
     case 0:
         m_pMetadata = vma_new(hAllocator, VmaBlockMetadata_Generic)(hAllocator->GetAllocationCallbacks(),
             false); // isVirtual
