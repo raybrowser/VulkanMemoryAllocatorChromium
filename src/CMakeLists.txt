@@ -1,6 +1,13 @@
 set(VMA_LIBRARY_SOURCE_FILES
     VmaUsage.cpp
+    VmaUsage.h
+    "${PROJECT_SOURCE_DIR}/include/vk_mem_alloc.h"
 )
+
+# Visual Studio only debugger symbols
+if(WIN32 AND ${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
+    set(VMA_LIBRARY_SOURCE_FILES ${VMA_LIBRARY_SOURCE_FILES} vk_mem_alloc.natvis)
+endif()
 
 set(CMAKE_DEBUG_POSTFIX d)
 set(CMAKE_RELWITHDEBINFO_POSTFIX rd)
@@ -17,10 +24,10 @@ set_target_properties(
     CXX_STANDARD_REQUIRED ON
 )
 
-target_include_directories(VulkanMemoryAllocator PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(VulkanMemoryAllocator PUBLIC "${PROJECT_SOURCE_DIR}/include")
 
 # Only link to Vulkan if static linking is used
-if (NOT ${VMA_DYNAMIC_VULKAN_FUNCTIONS})
+if(${VMA_STATIC_VULKAN_FUNCTIONS})
     target_link_libraries(VulkanMemoryAllocator PUBLIC Vulkan::Vulkan)
 endif()
 
@@ -28,7 +35,7 @@ target_compile_definitions(
     VulkanMemoryAllocator
 
     PUBLIC
-    VMA_USE_STL_CONTAINERS=$<BOOL:${VMA_USE_STL_CONTAINERS}>
+    VMA_STATIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_STATIC_VULKAN_FUNCTIONS}>
     VMA_DYNAMIC_VULKAN_FUNCTIONS=$<BOOL:${VMA_DYNAMIC_VULKAN_FUNCTIONS}>
     VMA_DEBUG_ALWAYS_DEDICATED_MEMORY=$<BOOL:${VMA_DEBUG_ALWAYS_DEDICATED_MEMORY}>
     VMA_DEBUG_INITIALIZE_ALLOCATIONS=$<BOOL:${VMA_DEBUG_INITIALIZE_ALLOCATIONS}>
@@ -37,20 +44,23 @@ target_compile_definitions(
     VMA_RECORDING_ENABLED=$<BOOL:${VMA_RECORDING_ENABLED}>
 )
 
-install(TARGETS VulkanMemoryAllocator DESTINATION lib)
-install(FILES ../include/vk_mem_alloc.h DESTINATION include)
+install(TARGETS VulkanMemoryAllocator DESTINATION "lib")
+install(FILES "${PROJECT_SOURCE_DIR}/include/vk_mem_alloc.h" DESTINATION "include")
 
-if (VMA_BUILD_SAMPLE)
+if(VMA_BUILD_SAMPLE)
     if(WIN32)
         set(VMA_SAMPLE_SOURCE_FILES
             Common.cpp
+            Common.h
             SparseBindingTest.cpp
+            SparseBindingTest.h
             Tests.cpp
+            Tests.h
             VulkanSample.cpp
         )
 
         add_executable(VmaSample ${VMA_SAMPLE_SOURCE_FILES})
-		add_dependencies(VmaSample VmaSampleShaders)
+		add_dependencies(VmaSample VulkanMemoryAllocator VmaSampleShaders)
 		
         # Visual Studio specific settings
         if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
@@ -58,7 +68,10 @@ if (VMA_BUILD_SAMPLE)
             add_compile_definitions(UNICODE _UNICODE)
             
             # Set VmaSample as startup project
-            set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "VmaSample")
+            set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT "VmaSample")
+
+            # Add C++ warnings and security checks
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /permissive- /sdl /W3")
             
             # Enable multithreaded compiling
             target_compile_options(VmaSample PRIVATE "/MP")
@@ -93,8 +106,4 @@ endif()
 
 if(VMA_BUILD_SAMPLE_SHADERS)
     add_subdirectory(Shaders)
-endif()
-
-if(VMA_BUILD_REPLAY)
-    add_subdirectory(VmaReplay)
 endif()
